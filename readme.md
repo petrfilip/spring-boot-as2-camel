@@ -10,6 +10,7 @@ java -jar
     -Dmilos.certificate.signing='file:///path/to/signingCertificate' 
     -Dmilos.certificate.private='file:///path/to/privateKey' 
     -Dmilos.certificate.encryption='file:///path/to/encryptionCertificate' 
+    -Dmilos.message.content='file:///path/to/content.xml' 
     ./as2-camel-0.0.1-SNAPSHOT.jar
 ```
 - create JAR
