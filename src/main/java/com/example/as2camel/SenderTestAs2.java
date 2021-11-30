@@ -98,7 +98,6 @@ public class SenderTestAs2 {
 
 
   private AS2ClientConnection prepareAs2Connection() throws IOException {
-    LOGGER.info("AS2 MILOS INFO :: targetHostName: {} | targetPort: {} | proxyHostName: {} | proxyPort: {}", targetHostName, targetPort, proxyHostName, proxyPort);
     return new AS2ProxyClientConnection(AS2_VERSION, AS2_USER_AGENT, AS2_CLIENT_FQDN, targetHostName, targetPort, proxyHostName, proxyPort);
   }
 
@@ -133,8 +132,11 @@ public class SenderTestAs2 {
 
     HttpConnection conn = null;
     try {
+      LOGGER.info("AS2 MILOS INFO :: targetHostName: {} | targetPort: {} | proxyHostName: {} | proxyPort: {}", targetHostName, targetPort, proxyHostName, proxyPort);
       AS2ClientConnection as2ClientConnection = prepareAs2Connection();
+      LOGGER.info("AS2 MILOS INFO :: connection prepared");
       HttpCoreContext context = sendMessage(content, as2ClientConnection);
+      LOGGER.info("AS2 MILOS INFO :: message sent");
       conn = context.getConnection();
       HttpResponse response = context.getResponse();
       StatusLine status = response.getStatusLine();

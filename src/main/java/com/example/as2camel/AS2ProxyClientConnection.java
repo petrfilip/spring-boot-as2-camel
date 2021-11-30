@@ -40,8 +40,13 @@ import org.apache.http.protocol.RequestExpectContinue;
 import org.apache.http.protocol.RequestTargetHost;
 import org.apache.http.protocol.RequestUserAgent;
 import org.apache.http.util.Args;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class AS2ProxyClientConnection extends AS2ClientConnection {
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(AS2ProxyClientConnection.class);
+
 
   private HttpHost targetHost;
   private final HttpProcessor httpProcessor;
@@ -72,9 +77,11 @@ public class AS2ProxyClientConnection extends AS2ClientConnection {
       .add(new RequestConnControl())
       .add(new RequestExpectContinue(true)).build();
 
+
     // Create Socket
     Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHostName, proxyPortNumber));
     Socket socketProxy = new Socket(proxy);
+    socketProxy.setSoTimeout(10000);
     InetSocketAddress address = InetSocketAddress.createUnresolved(targetHostName, targetPortNumber); // create a socket without resolving the target host to IP
     socketProxy.connect(address);
 
@@ -100,10 +107,13 @@ public class AS2ProxyClientConnection extends AS2ClientConnection {
 
     httpContext.setTargetHost(targetHost);
 
+
     // Execute Request
     HttpRequestExecutor httpExecutor = new HttpRequestExecutor();
     httpExecutor.preProcess(request, httpProcessor, httpContext);
+    LOGGER.info("REQUEST :: {}", request);
     HttpResponse response = httpExecutor.execute(request, httpConnection, httpContext);
+    LOGGER.info("RESPONSE :: {}", response);
     httpExecutor.postProcess(response, httpProcessor, httpContext);
 
     return response;
