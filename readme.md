@@ -30,3 +30,13 @@ openssl req -newkey rsa:4096
 ```
 
 
+## tst
+```
+java -jar 
+-Dmilos.endpoint.hostname='tsoas2.test.prisma-capacity.cloud'
+ -Dmilos.endpoint.port=443 
+ -Dmilos.proxy.hostname='proxyfg.net4gas.n4g.local' 
+ -Dmilos.proxy.port=8080 
+ -Dmilos.message.content='file:///home/klapal-ext/test.xml' 
+ -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8001 as2-camel-0.0.1-SNAPSHOT.jar
+```

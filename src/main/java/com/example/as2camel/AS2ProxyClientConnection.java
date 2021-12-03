@@ -19,7 +19,16 @@ package com.example.as2camel;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
+import java.net.Proxy.Type;
 import java.net.Socket;
+import java.security.GeneralSecurityException;
+import java.security.cert.X509Certificate;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 import org.apache.camel.component.as2.api.AS2ClientConnection;
 import org.apache.camel.component.as2.api.io.AS2BHttpClientConnection;
 import org.apache.camel.component.as2.api.protocol.RequestAS2;
@@ -56,38 +65,84 @@ public class AS2ProxyClientConnection extends AS2ClientConnection {
   private String clientFqdn;
 
   public AS2ProxyClientConnection(String as2Version, String userAgent, String clientFqdn,
-    String targetHostName, Integer targetPortNumber,
-    String proxyHostName, Integer proxyPortNumber) throws IOException {
+      String targetHostName, Integer targetPortNumber,
+      String proxyHostName, Integer proxyPortNumber) throws IOException {
 
     super(as2Version, userAgent, clientFqdn, proxyHostName, proxyPortNumber);
 
     this.as2Version = Args.notNull(as2Version, "as2Version");
     this.userAgent = Args.notNull(userAgent, "userAgent");
     this.clientFqdn = Args.notNull(clientFqdn, "clientFqdn");
-    this.targetHost = new HttpHost(Args.notNull(proxyHostName, "proxyHostName"), Args.notNull(proxyPortNumber, "proxyPortNumber"));
+    this.targetHost = new HttpHost(targetHostName, targetPortNumber);
 
     // Build Processor
     httpProcessor = HttpProcessorBuilder.create()
-      .add(new RequestAS2(as2Version, clientFqdn))
-      .add(new RequestMDN())
-      .add(new RequestTargetHost())
-      .add(new RequestUserAgent(this.userAgent))
-      .add(new RequestDate())
-      .add(new RequestContent(true))
-      .add(new RequestConnControl())
-      .add(new RequestExpectContinue(true)).build();
+        .add(new RequestAS2(as2Version, clientFqdn))
+        .add(new RequestMDN())
+        .add(new RequestTargetHost())
+        .add(new RequestUserAgent(this.userAgent))
+        .add(new RequestDate())
+        .add(new RequestContent(true))
+        .add(new RequestConnControl())
+        .add(new RequestExpectContinue(true)).build();
 
+    TrustManager[] trustAllCerts = new TrustManager[]{
+        new X509TrustManager() {
+          public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+            return new X509Certificate[0];
+          }
+
+          public void checkClientTrusted(
+              java.security.cert.X509Certificate[] certs, String authType) {
+          }
+
+          public void checkServerTrusted(
+              java.security.cert.X509Certificate[] certs, String authType) {
+          }
+        }
+    };
+
+    SSLContext sc = null;
+    try {
+      sc = SSLContext.getInstance("SSL");
+      sc.init(null, trustAllCerts, new java.security.SecureRandom());
+      HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+    } catch (GeneralSecurityException e) {
+    }
 
     // Create Socket
-    Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHostName, proxyPortNumber));
+    Proxy proxy = new Proxy(Type.HTTP, new InetSocketAddress(proxyHostName, proxyPortNumber));
     Socket socketProxy = new Socket(proxy);
-    socketProxy.setSoTimeout(10000);
+    socketProxy.setSoTimeout(30000);
     InetSocketAddress address = InetSocketAddress.createUnresolved(targetHostName, targetPortNumber); // create a socket without resolving the target host to IP
     socketProxy.connect(address);
 
+    SSLSocketFactory sslSocketFactory = (SSLSocketFactory) sc.getSocketFactory();
+    SSLSocket sslSocket = (SSLSocket) sslSocketFactory.createSocket(socketProxy, address.getHostName(), address.getPort(), true);
+    sslSocket.setSoTimeout(30000);
+    sslSocket.startHandshake();
+
     // Create Connection
     httpConnection = new AS2BHttpClientConnection(8 * 1024);
-    httpConnection.bind(socketProxy);
+    httpConnection.bind(sslSocket);
+
+
+  }
+
+
+  public HttpResponse send(HttpRequest request, HttpCoreContext httpContext) throws HttpException, IOException {
+
+    httpContext.setTargetHost(targetHost);
+
+    // Execute Request
+    HttpRequestExecutor httpExecutor = new HttpRequestExecutor();
+    httpExecutor.preProcess(request, httpProcessor, httpContext);
+    LOGGER.info("REQUEST :: {}", request);
+    HttpResponse response = httpExecutor.execute(request, httpConnection, httpContext);
+    LOGGER.info("RESPONSE :: {}", response);
+    httpExecutor.postProcess(response, httpProcessor, httpContext);
+
+    return response;
   }
 
 
@@ -101,22 +156,6 @@ public class AS2ProxyClientConnection extends AS2ClientConnection {
 
   public String getClientFqdn() {
     return clientFqdn;
-  }
-
-  public HttpResponse send(HttpRequest request, HttpCoreContext httpContext) throws HttpException, IOException {
-
-    httpContext.setTargetHost(targetHost);
-
-
-    // Execute Request
-    HttpRequestExecutor httpExecutor = new HttpRequestExecutor();
-    httpExecutor.preProcess(request, httpProcessor, httpContext);
-    LOGGER.info("REQUEST :: {}", request);
-    HttpResponse response = httpExecutor.execute(request, httpConnection, httpContext);
-    LOGGER.info("RESPONSE :: {}", response);
-    httpExecutor.postProcess(response, httpProcessor, httpContext);
-
-    return response;
   }
 
 }

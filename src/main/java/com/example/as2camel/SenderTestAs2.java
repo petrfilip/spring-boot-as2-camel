@@ -99,6 +99,7 @@ public class SenderTestAs2 {
 
   private AS2ClientConnection prepareAs2Connection() throws IOException {
     return new AS2ProxyClientConnection(AS2_VERSION, AS2_USER_AGENT, AS2_CLIENT_FQDN, targetHostName, targetPort, proxyHostName, proxyPort);
+    // return new AS2ClientConnection(AS2_VERSION, AS2_USER_AGENT, AS2_CLIENT_FQDN, targetHostName, targetPort);
   }
 
   private HttpCoreContext sendMessage(String payload, AS2ClientConnection as2ClientConnection) throws Exception {
@@ -108,23 +109,26 @@ public class SenderTestAs2 {
     AS2ClientManager clientManager = new AS2ClientManager(as2ClientConnection);
 
     //HDS 4.2. Call send method on AS2ClientManager with parameters from as2Message
-    String uri = "/PKP-AS2-ESB-UnicornAS2Receiver";
-    String from = "";
-    String subject = "";
+    String uri = "/PKP-AS2-ESB-NET4GAS2AS2Receiver"; // funkční pro test.prisma.cams:80
+    // String uri = "/PKP-AS2-ESB-UnicornAS2Receiver";
+    String from = "avcd";
+    String subject = "prismaOfferedCapacity";
     // String as2From = "N4G";
-    String as2From = "UnicornTest";
+    String as2From = "21XNET4GAS21304L";
     String as2To = "PRISMA-TEST-AS2-ID";
-    AS2MessageStructure msgStructure = AS2MessageStructure.SIGNED_ENCRYPTED;
-    ContentType ediMsgContentType = ContentType.create("application/edifact"); // "application/edi-x12";
+    AS2MessageStructure msgStructure = AS2MessageStructure.PLAIN;
+    ContentType ediMsgContentType = ContentType.create("application/edi-consent"); // "application/edi-x12";
     AS2SignatureAlgorithm signAlg = AS2SignatureAlgorithm.SHA256WITHRSA;
     String[] micAlg = {"SHA256"};
-    AS2CompressionAlgorithm compressAlg = null;
+    AS2CompressionAlgorithm compressAlg = AS2CompressionAlgorithm.ZLIB;
     AS2EncryptionAlgorithm encryptAlg = AS2EncryptionAlgorithm.DES_EDE3_CBC;
     // String dispositionNotificationTo = "N4G";
-    String dispositionNotificationTo = "UnicornTest";
-    return clientManager
+    String dispositionNotificationTo = "21XNET4GAS21304L";
+    HttpCoreContext send = clientManager
         .send(payload, uri, subject, from, as2From, as2To, msgStructure, ediMsgContentType, null, signAlg,
             getSigningCertificateChain(), getSigningPrivateKey(), compressAlg, dispositionNotificationTo, micAlg, encryptAlg, getEncryptionCertificateChain());
+    LOGGER.info("RESPONSE:: {}", send.getResponse());
+    return send;
   }
 
   public String sendMessage(String content) throws Exception {
@@ -141,6 +145,8 @@ public class SenderTestAs2 {
       HttpResponse response = context.getResponse();
       StatusLine status = response.getStatusLine();
       String responseContent = new BufferedReader(new InputStreamReader(response.getEntity().getContent(), UTF_8)).lines().collect(Collectors.joining("\n"));
+      LOGGER.info("STATUS :: {}",status);
+      LOGGER.info("RESPONSE :: {}", responseContent);
       return responseContent;
     } finally {
       if (conn != null) {
